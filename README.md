@@ -1,4 +1,4 @@
-## Go Ethereum
+## Go Ethereum for NodeKit OP Stack
 
 Official Golang execution layer implementation of the Ethereum protocol.
 

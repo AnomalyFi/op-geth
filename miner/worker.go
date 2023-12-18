@@ -936,6 +936,7 @@ type generateParams struct {
 	withdrawals types.Withdrawals // List of withdrawals to include in block.
 	beaconRoot  *common.Hash      // The beacon root (cancun field).
 	noTxs       bool              // Flag whether an empty block without any transaction is expected
+	nodekit     bool              // Flag indicating whether NodeKit mode is enabled
 
 	txs      types.Transactions // Deposit transactions to include at the start of the block
 	gasLimit *uint64            // Optional gas limit override
@@ -1074,14 +1075,32 @@ func (w *worker) generateWork(genParams *generateParams) *newPayloadResult {
 
 	misc.EnsureCreate2Deployer(w.chainConfig, work.header.Time, work.state)
 
+	rejected := make([]types.RejectedTransaction, 0)
 	for _, tx := range genParams.txs {
 		from, _ := types.Sender(work.signer, tx)
 		work.state.SetTxContext(tx.Hash(), work.tcount)
 		_, err := w.commitTransaction(work, tx)
 		if err != nil {
-			return &newPayloadResult{err: fmt.Errorf("failed to force-include tx: %s type: %d sender: %s nonce: %d, err: %w", tx.Hash(), tx.Type(), from, tx.Nonce(), err)}
+			if tx.Type() == types.DepositTxType || !genParams.nodekit {
+				// We must include deposit transactions, and prior to enabling NodeKit mode we must
+				// include _all_ forced transactions.
+				return &newPayloadResult{err: fmt.Errorf("failed to force-include tx: %s type: %d sender: %s nonce: %d, err: %w", tx.Hash(), tx.Type(), from, tx.Nonce(), err)}
+			}
+			// Other forced transactions that are invalid just get added to a list, which the
+			// batcher can use to send them to L1 so that validating nodes can check they were in
+			// fact rejected using their own engine.
+			log.Warn("failed to force-include tx", "hash", tx.Hash(), "type", tx.Type(), "sender", from, "nonce", tx.Nonce(), "err", err)
+			bytes, err := tx.MarshalBinary()
+			if err != nil {
+				return &newPayloadResult{err: fmt.Errorf("failed to serialize rejected tx %v, err: %w", tx, err)}
+			}
+			rejected = append(rejected, types.RejectedTransaction{
+				Data: bytes,
+				Pos:  uint64(len(work.receipts)),
+			})
+		} else {
+			work.tcount++
 		}
-		work.tcount++
 	}
 
 	// forced transactions done, fill rest of block with transactions
@@ -1097,7 +1116,7 @@ func (w *worker) generateWork(genParams *generateParams) *newPayloadResult {
 			log.Warn("Block building is interrupted", "allowance", common.PrettyDuration(w.newpayloadTimeout))
 		}
 	}
-	block, err := w.engine.FinalizeAndAssemble(w.chain, work.header, work.state, work.txs, nil, work.receipts, genParams.withdrawals)
+	block, err := w.engine.FinalizeAndAssemble(w.chain, work.header, work.state, work.txs, nil, work.receipts, genParams.withdrawals, rejected)
 	if err != nil {
 		return &newPayloadResult{err: err}
 	}
@@ -1186,7 +1205,7 @@ func (w *worker) commit(env *environment, interval func(), update bool, start ti
 		// https://github.com/ethereum/go-ethereum/issues/24299
 		env := env.copy()
 		// Withdrawals are set to nil here, because this is only called in PoW.
-		block, err := w.engine.FinalizeAndAssemble(w.chain, env.header, env.state, env.txs, nil, env.receipts, nil)
+		block, err := w.engine.FinalizeAndAssemble(w.chain, env.header, env.state, env.txs, nil, env.receipts, nil, nil)
 		if err != nil {
 			return err
 		}

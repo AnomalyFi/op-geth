@@ -461,6 +461,7 @@ func testGetSealingWork(t *testing.T, chainConfig *params.ChainConfig, engine co
 			withdrawals: nil,
 			beaconRoot:  nil,
 			noTxs:       false,
+			nodekit:     false,
 			forceTime:   true,
 		})
 		if c.expectErr {
@@ -486,6 +487,7 @@ func testGetSealingWork(t *testing.T, chainConfig *params.ChainConfig, engine co
 			withdrawals: nil,
 			beaconRoot:  nil,
 			noTxs:       false,
+			nodekit:     false,
 			forceTime:   true,
 		})
 		if c.expectErr {

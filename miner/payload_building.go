@@ -43,6 +43,7 @@ type BuildPayloadArgs struct {
 	BeaconRoot   *common.Hash      // The provided beaconRoot (Cancun)
 
 	NoTxPool     bool                 // Optimism addition: option to disable tx pool contents from being included
+	NodeKit      bool                 // Optimism addition: option to enable NodeKit mode
 	Transactions []*types.Transaction // Optimism addition: txs forced into the block via engine API
 	GasLimit     *uint64              // Optimism addition: override gas limit of the block to build
 }
@@ -206,6 +207,7 @@ func (w *worker) buildPayload(args *BuildPayloadArgs) (*Payload, error) {
 		withdrawals: args.Withdrawals,
 		beaconRoot:  args.BeaconRoot,
 		noTxs:       true,
+		nodekit:     args.NodeKit,
 		txs:         args.Transactions,
 		gasLimit:    args.GasLimit,
 	}
@@ -245,6 +247,7 @@ func (w *worker) buildPayload(args *BuildPayloadArgs) (*Payload, error) {
 			withdrawals: args.Withdrawals,
 			beaconRoot:  args.BeaconRoot,
 			noTxs:       false,
+			nodekit:     false,
 			txs:         args.Transactions,
 			gasLimit:    args.GasLimit,
 		}

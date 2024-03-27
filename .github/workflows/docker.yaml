@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - main
-      - nodekit
+      - nodekitnew
       - release-*
     tags:
       # YYYYMMDD

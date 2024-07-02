@@ -25,6 +25,7 @@ fi
 exec geth \
 	--datadir="$GETH_DATA_DIR" \
 	--verbosity="$VERBOSITY" \
+	--port=30303 \
 	--http \
 	--http.corsdomain="*" \
 	--http.vhosts="*" \
